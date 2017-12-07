@@ -192,7 +192,50 @@ Remember:
 
 ```{r}
 
+#Creating empty lists to put data into
+accuracy = NULL
+specificity = NULL
+sensitivity = NULL
+PPV = NULL
+NPV = NULL
+AUC = NULL
+n = 1
 
+#Creating loop
+for(i in folds){
+  #subsetting testdata
+  testsubset = subset(data, folds_id %in% i)
+  
+  #subsetting traindata
+  trainsubset = subset(data,!(folds_id %in% i))
+  
+  #training the model on the traindata subset
+  trainmodel = glmer(diagnosis ~ 1 + range + radius + (1+trial|participant) + (1|study), family= "binomial", data = trainsubset)
+  
+  #Confusionmatrix
+  testsubset$PredictionsPerc = predict(trainmodel, testsubset, allow.new.levels = T)
+  testsubset$Predictions[testsubset$PredictionsPerc>0]="0"
+  testsubset$Predictions[testsubset$PredictionsPerc<=0]="1"
+  cm = confusionMatrix(data = testsubset$Predictions, reference = testsubset$diagnosis, positive = "1")
+  testsubset$Predictions = as.factor(testsubset$Predictions)
+  
+  #Extracting values from confusion matrix
+  accuracy[n] = cm$overall["Accuracy"]
+  specificity[n] = cm$byClass["Specificity"]
+  sensitivity[n] = cm$byClass["Sensitivity"]
+  PPV[n] = cm$byClass["Pos Pred Value"]
+  NPV[n] = cm$byClass["Neg Pred Value"]
+  
+  #ROC curve - area under the curve 
+  roccurve = roc(response = testsubset$diagnosis, predictor = testsubset$PredictionsPerc)
+  AUC[n] = auc(roccurve) 
+  ci(roccurve)
+  plot(roccurve, legacy.axes = TRUE) 
+  
+  n=n+1
+}
+
+df2 = data.frame(accuracy, sensitivity, specificity, PPV, NPV, AUC)
 
 ```
 
